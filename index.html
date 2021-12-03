@@ -1,0 +1,170 @@
+<!doctype html>
+  <html>
+    <head>
+      <link rel="stylesheet" href="node_modules/xterm/css/xterm.css" />
+      <script src="node_modules/xterm/lib/xterm.js"></script>
+      <script src="jszm-async.js"></script>
+    </head>
+    <body>
+      <div id="terminal"></div>
+      <input id="input" type="file"/>
+      <div id="message" class="message">Click anywhere and begin speaking.</div>
+      <script>
+        //////////////////////////
+        document.body.addEventListener('click', talkWithApp, true);
+        
+        var recognizing = false;
+        var ignore_onend;
+        var start_timestamp;
+        let speechCB = null;
+        
+        // Speech Recognition
+        if (!('webkitSpeechRecognition' in window)) {
+          message.innerHTML = 'Web Speech API is not supported by this browser. Upgrade to <a href="//www.google.com/chrome">Chrome</a> version 25 or later.';
+        } else {
+          var recognition = new webkitSpeechRecognition();
+          recognition.continuous = true;
+          recognition.interimResults = false;
+        
+          recognition.onstart = function() {
+            recognizing = true;
+            message.innerHTML = 'Speak now.';
+          };
+          
+          function type_it(message) {
+            if (speechCB) {
+              term.writeln(message);
+              var cb = speechCB;
+              speechCB = null;
+              cb(message);
+            }
+          }
+        
+          recognition.onresult = function(event) {
+            for (var i = event.resultIndex; i < event.results.length; ++i) {
+              if (event.results[i].isFinal) {
+                type_it(event.results[i][0].transcript.trim());
+              }
+            }
+          };
+        
+          recognition.onend = function() {
+            recognition.start();
+          };
+        
+          recognition.onerror = function(event) {
+            if (event.error == 'no-speech') {
+              message.innerHTML = 'No speech was detected.';
+              ignore_onend = true;
+            }
+            if (event.error == 'audio-capture') {
+              message.innerHTML = 'No microphone was found. Ensure that a microphone is installed.';
+              ignore_onend = true;
+            }
+            if (event.error == 'not-allowed') {
+              if (event.timeStamp - start_timestamp < 100) {
+                message.innerHTML = 'Permission to use microphone is blocked. To change, go to chrome://settings/contentExceptions#media-stream';
+              } else {
+                message.innerHTML = 'Permission to use microphone was denied.';
+              }
+              ignore_onend = true;
+            }
+          };
+        
+        }
+        
+        function talkWithApp(event) {
+          if (recognizing) {
+            recognition.stop();
+            message.innerHTML = 'Click anywhere and begin speaking.';
+            return;
+          }
+          recognition.lang = "en-US";
+          recognition.start();
+          ignore_onend = false;
+          message.innerHTML = 'Click the "Allow" button above to enable your microphone.';
+          start_timestamp = event.timeStamp;
+        }
+        
+        //////////////////////////
+        
+        
+        var term = new Terminal();
+        term.open(document.getElementById('terminal'));
+        term.resize(200, 60);
+        term.write("Choose File below to begin");
+        
+        let command = '';
+        // term.onData(e => {
+        //   if (keyCB) {
+        //     var cb = keyCB;
+        //     keyCB = null;
+        //     cb(e);
+        //   }
+        // });
+        
+        // async function readkey() {
+        //   var result = await (new Promise(resolve => keyCB = resolve));
+        //   return result;
+        // }
+        
+        // async function readline() {
+        //   let command = '';
+        //   while (true) {
+        //     let e = await readkey();
+        //     switch (e) {
+        //       case '\r': // Enter
+        //         term.write('\r\n');
+        //         return command;
+        //         command = '';
+        //         break;
+        //       case '\u007F': // Backspace (DEL)
+        //         if (command.length > 0) {
+        //           term.write('\b \b');
+        //           command = command.substr(0, command.length - 1);
+        //         }
+        //         break;
+        //       default: // Print all other characters for demo
+        //         if (e >= String.fromCharCode(0x20) && e <= String.fromCharCode(0x7B) || e >= '\u00a0') {
+        //           command += e;
+        //           term.write(e);
+        //         }
+        //     }
+        //   }
+        // }
+        
+        async function readline() {
+          var result = await (new Promise(resolve => speechCB = resolve));
+          return result;
+        }
+        
+        async function run(game) {
+          while (true) {
+            console.log("Calling game.run");
+            await game.run();
+          }
+        }
+
+        let input = document.getElementById('input');
+        input.addEventListener('change', function (changeEvent) {
+          var file = changeEvent.currentTarget.files[0];
+          var reader = new FileReader();
+          reader.addEventListener('load', function (loadEvent) {
+            term.write("\x1B[2J\x1B[H"); // clear and reset cursor to top left
+            var buffer = loadEvent.target.result;
+            var uint8Array = new Uint8Array(buffer);
+            let game = new JSZM(uint8Array);
+            game.print=function(x,scripting) {
+              x = x.replaceAll('\n', '\r\n');
+              term.write(x);
+            };
+            game.read=async function(maxlen) {
+              return await readline();
+            };
+            run(game);
+          });
+          reader.readAsArrayBuffer(file);
+        });
+      </script>
+    </body>
+  </html>
