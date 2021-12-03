@@ -1,12 +1,9 @@
 <!doctype html>
   <html>
     <head>
-      <link rel="stylesheet" href="node_modules/xterm/css/xterm.css" />
-      <script src="node_modules/xterm/lib/xterm.js"></script>
       <script src="jszm-async.js"></script>
     </head>
     <body>
-      <div id="terminal"></div>
       <input id="input" type="file"/>
       <div id="message" class="message">Click anywhere and begin speaking.</div>
       <script>
@@ -33,7 +30,7 @@
           
           function type_it(message) {
             if (speechCB) {
-              term.writeln(message);
+              console.log(message);
               var cb = speechCB;
               speechCB = null;
               cb(message);
@@ -89,50 +86,8 @@
         //////////////////////////
         
         
-        var term = new Terminal();
-        term.open(document.getElementById('terminal'));
-        term.resize(200, 60);
-        term.write("Choose File below to begin");
-        
         let command = '';
-        // term.onData(e => {
-        //   if (keyCB) {
-        //     var cb = keyCB;
-        //     keyCB = null;
-        //     cb(e);
-        //   }
-        // });
-        
-        // async function readkey() {
-        //   var result = await (new Promise(resolve => keyCB = resolve));
-        //   return result;
-        // }
-        
-        // async function readline() {
-        //   let command = '';
-        //   while (true) {
-        //     let e = await readkey();
-        //     switch (e) {
-        //       case '\r': // Enter
-        //         term.write('\r\n');
-        //         return command;
-        //         command = '';
-        //         break;
-        //       case '\u007F': // Backspace (DEL)
-        //         if (command.length > 0) {
-        //           term.write('\b \b');
-        //           command = command.substr(0, command.length - 1);
-        //         }
-        //         break;
-        //       default: // Print all other characters for demo
-        //         if (e >= String.fromCharCode(0x20) && e <= String.fromCharCode(0x7B) || e >= '\u00a0') {
-        //           command += e;
-        //           term.write(e);
-        //         }
-        //     }
-        //   }
-        // }
-        
+
         async function readline() {
           var result = await (new Promise(resolve => speechCB = resolve));
           return result;
@@ -150,13 +105,12 @@
           var file = changeEvent.currentTarget.files[0];
           var reader = new FileReader();
           reader.addEventListener('load', function (loadEvent) {
-            term.write("\x1B[2J\x1B[H"); // clear and reset cursor to top left
             var buffer = loadEvent.target.result;
             var uint8Array = new Uint8Array(buffer);
             let game = new JSZM(uint8Array);
             game.print=function(x,scripting) {
-              x = x.replaceAll('\n', '\r\n');
-              term.write(x);
+              //x = x.replaceAll('\n', '\r\n');
+              console.log(x);
             };
             game.read=async function(maxlen) {
               return await readline();
